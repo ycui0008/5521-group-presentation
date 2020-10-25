@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+index_cache/
+index_files/
+*.Rproj
+*.DS_Store
+.data/.DS_Store

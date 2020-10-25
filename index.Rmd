@@ -1,0 +1,615 @@
+---
+title: "ETC5521 Assignment 1"
+subtitle: "House and Mortgage Data"
+team: Dugong
+author:
+  - Abhishek Sinha
+  - Yezi He
+  - Yawen Zhang
+  - Cuiping Wei
+bibliography: reference.bib
+biblio-style: authoryear-comp
+link-citations: yes
+linestretch: 3
+date: "`r Sys.Date()`"
+output: 
+  bookdown::html_document2: 
+    toc: yes
+    toc_float:
+      collapsed: true
+      number_sections: false
+    # theme: paper
+---
+
+[This assignment is for ETC5521 Assignment 1 by Team `r rmarkdown::metadata$team` comprising of `r knitr::combine_words(rmarkdown::metadata$author)`.]{style="color:#006DAE;"}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE,message = FALSE, fig.pos = 'H', fig.align ='center')
+library(tidyverse)
+library(lubridate)
+library(here)
+library(GGally)
+library(MASS)
+library(kableExtra)
+library(janitor)
+library(dplyr)
+library(patchwork)
+library(naniar)
+library(plotly)
+library(scales)
+library(knitr)
+```
+
+# Introduction and motivation
+
+The House Price Index(HPI) is a broad index for calculating the monthly change in the selling prices of single-family house prices, which provides house price trends at various state and national levels [@index2018federal]. Also, the housing market represents about 15% to 18% of U.S. GDP[@2019national], which means a weak or strong housing market can substantially influence the direction of the overall economy.   
+In recent years, as the U.S. housing market booming, HPI drew increasing attention from housing economists. From 1975 to 2018, the HPI went through ups and downs, especially the Great Depression that started in 2007, which led to the cold winter for the real estate market. What can we find from HPI when it comes to the mortgage rates? What's the story between HPI, mortgage rates, and the recession? It's exciting to explore what interesting economic secrets can HPI, mortgage rates, and the recession tell us?   
+In this analysis, R is the only tool for data cleaning and analysis.  
+The rest of the analysis proceeds as follows. Section \@ref(data) presents the data description. Section \@ref(analysis) details the findings in data analysis. The limitations of the analysis are presented in Section \@ref(limitation). Finally, Section \@ref(conclusion) provides the conclusions of this analysis.  
+
+## Secondary research questions
+
+This analysis aims to explore six secondary questions:   
+
+- How similar is the change in state HPI with national HPI?  
+- Are HPI more likely to be higher in prosperous or populous cities?   
+- Was the annual change for the HPI index similar to the mortgage rates?  
+- Do lower mortgage rates mean higher HPI? Can the long mortgage rates predict HPI?
+- Can HPI and mortgage rates provide evidence of a sub-prime crisis?  
+- Can we find any house price bubble in the U.S from 1975 to 2018?  
+
+# Data{#data}
+
+This section mainly introduces the data, data sources and data description.  
+
+```{r read-data}
+state_hpi <-readr::read_csv(here::here("data/state_hpi.csv")) 
+mortgage_rates <- readr::read_csv(here::here("data/mortgage_rates.csv")) 
+states_gdp <- readr::read_csv(here::here("data/SAGDP1__ALL_AREAS_1997_2019.csv")) 
+recession_dates <- readr::read_csv(here::here("data/recession_dates.csv")) 
+```
+
+```{r data-clean}
+recession_clean <- recession_dates %>% 
+  mutate(duration_months = substring(duration_months, 3),
+         period_range = substring(period_range, 5),
+         time_since_previous_recession_months = substring(time_since_previous_recession_months, 4),
+         peak_unemploy_ment = substring(peak_unemploy_ment, 5),
+         period_range = case_when(name == "Great Depression" ~ "Aug 1929–Mar 1933",
+                                  name == "Great Recession" ~ "Dec 2007–June 2009",
+                                  name == "COVID-19 recession" ~ "Feb 2020–present",
+                                  TRUE ~ period_range)) %>% 
+mutate(peak_unemploy_ment = recode(peak_unemploy_ment,
+                                   "5.2%[57](1946)" = "5.2%(1946)",
+                                   "17.8%[50]–\n19.0%(1938)[57]" = "17.8%–19.0%(1938)",
+                                   "21.3%(1932)[50]–  24.9%(1933)[51]"= "21.3%(1932)–24.9%(1933)",
+                                   "10.0%(October 2009)[76]" = "10.0%(October 2009)")) 
+```
+
+## Data source
+The primary data which are used for analyzing in this report are from [GitHub tidytuesday](https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-02-05)[@github], which contains house and mortgage data. There are four data sets used for the analysis. The HPI and mortgage rate can be found from the Freddie Mace House Price Index [@HPI], and the small list of recession in the U.S. could be found in Wikipedia[@wiki]. Also, we added U.S. GDP data for comparative analysis in Section \@ref(gdp), which can be obtained from the U.S. Bureau of Economic Analysis[@datagdp].  
+
+## Data description 
+
+### HPI data
+Table \@ref(tab:HPI) is related to the House Price Index (HPI) in each state. It is covering index values are available for the national, the 50 states and the District of Columbia, and the more than 380 metropolitan statistical areas (MSAs) in the U.S. The following analysis will use the whole data set. 
+
+```{r HPI}
+HPI <- data.frame(Variable = c("year", "month", "state", "price_index", "us_avg"), 
+           Class = c("date - integer", "date - integer", "character", "double", "double"),
+           Description = c("Year", "Month", "US State", "Calculated House Price Index - average price changes in repeat sales or refinancings at state level", "Calculated House Price Index - averaged at national level")) %>%
+  kable(caption = "HPI data set from 1975 to 2018, Source from the Freddie Mace House Price Index") %>%
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed"), 
+                  full_width = F, 
+                  position = "center")
+HPI
+```
+
+
+
+### Mortgage data
+Table \@ref(tab:Mortgage) is related to *Freddie Mac's Mortgage rates*. Mortgage rates are an essential factor that can influence the home buyer's decision which refers to homebuyers looking to finance a new home purchase with a mortgage loan. Freddie Mac maintains an extensive data set for mortgage rates consisting of different types of mortgage like 'Fixed rate 30-year mortgage', 'Fixed rate 15-year mortgage' and '5-1 Hybrid Adjustable rate mortgage'. One thing needs to notice that 30-year fixed-rate begin in 1971, while the 15-year data went back in 1991 and the adjustable 5-1 Hybrid started in 2005. The whole data structure also presents as follows. We only use fixed-30-yr this variable to do the analysis.
+
+
+```{r Mortgage}
+Mortgage <- data.frame(Variable = c("date", "fixed_rate_30_yr", "fees_and_pts_30_yr", "fixed_rate_15_yr", "fees_and_pts_15_yr", "adjustable_rate_5_1_hybrid fixed, then annual adjustable rate", "fees_and_pts_5_1_hybrid", "adjustable_margin_5_1_hybrid to establish the fully indexed rate for an ARM", "spread_30_yr_fixed_and_5_1_adjustabl"), 
+            Class = c("date", "double", "double", "double", "double", "double", "double", "double", "double"),
+            Description = c("Date", "Fixed rate 30 year mortgage (percent)", "Fees and percentage points of the loan amount", "Fixed rate 15 year mortgage (percent)", "Fees and percentage points of the loan amount", "5-1 Hybrid Adjustable rate mortgage (5 year fixed, then annual adjustable rate)", "Fees and percentage points of the loan amount", "A fixed amount added to the underlying index to establish the fully indexed rate for an ARM", "Difference in rate between 30 year fixed and 5-1 adjustable"))
+Mortgage %>%
+  kable(caption = "Mortgage data set from 1971 to 2018, Source from the Freddie Mace House Price Index") %>%
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed"), 
+                  full_width = F, 
+                  position = "center") 
+```
+
+### State abbreviation data
+Table \@ref(tab:State) contains a character vector of 2-letter abbreviations for the state names in the USA [@state]. 
+
+```{r State}
+State <- data.frame(Variable = "state.abb", Class = "chararcter", Description = "2-letter for the state names")
+State %>%
+  kable(caption = "State abbreviation data set contains 2-letter abbreviation for the state names in the USA, Source from R package datasets") %>%
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed"), 
+                  full_width = F, 
+                  position = "center") 
+```
+
+### GDP data
+Table \@ref(tab:GDP-data) focus on the Gross Domestic Product(GDP) in the whole United State and each state. GDP measures of national income and output for each state economy. We will use GDP data combine with USA map to do the following analysis. 
+
+```{r GDP-data}
+GDP <- data.frame(Variable = c("GeoFIPS", "GeoName", "Region", "TableName", "LineCode", "IndustryClassification", "Description", "Unit", "Year"), 
+           Class = c("character", "character", "double", "character", "double", "character", "character", "double", "double"), 
+           Description = c("Five-digit Federal Information Processing Standards code", "Geographic Name", "Region", "Table Name", "Line code of each state", "Industry Classification", "Description the meaning of each amount","Unit of measure", "Amount in each year")) 
+GDP %>%
+  kable(caption = "GDP data set from 1997 to 2019, Source from the U.S. Bureau of Economic Analysis") %>%
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed"), 
+                  full_width = F, 
+                  position = "center") 
+```
+
+
+
+### Recessions data
+Table \@ref(tab:Recession) concludes all the recession dates and information from Wikipedia in the U.S. These periods of recession have a significant impact on the U.S. economy. These events may affect many industries and markets and are an essential factor in analyzing house prices over time. Recession can slow down the market, increase unemployment which leads to loss of income and falling wages which ultimately reduces the spending power of potential home buyers.  There have been 14 noteworthy recessions throughout U.S. history, including the Great Depression. The brief structure of this data will show as follows. The first five variables will be applied in the following paragraphs. 
+
+```{r Recession}
+Recessoin <- data.frame(Variable = c("name", "duration_months", "duration_months", "time_since_previous_recession_months", "peak_unemploy_ment", "gdp_decline_peak_to_trough", "characteristics"), 
+           Class = c("character", "character", "character", "character", "character", "character","character"), 
+           Description = c("Recession Name", "Time period range of the recession", "How long the recession lasted", "Time since previous recession in months", "Peak unemployment (percent)", "GDP decline from peak to trough", "Paragraph description of the recession")) 
+Recessoin %>%
+  kable(caption = "Recession data from 1929 to present, Source from Wikipedia") %>%
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed"), 
+                  full_width = F, 
+                  position = "center") 
+```
+
+
+
+## Limitations of data
+There are some limitations regarding the above data sets. 
+
+As a first step, we examined the missing value of the mortgage rate data. From Figure \@ref(fig:miss), we found that the mortgage rates for fixed 15 and adjustable 5-1 Hybrids were completely missing, so we only can use the mortgage rates for fixed-30-year at the end.   
+ 
+```{r miss, fig.cap="Missing value for the mortgage rates, only fixed-30-years don't have NA. We will only use fixed-30-years in this analysis."}
+mortgage_rates %>%
+  select(6,4,2) %>% 
+  vis_miss()
+```
+
+Furthermore, the HPI and the mortgage data set do not include data for 2019 and 2020. It has a particular influence on the following analysis of this report, especially the inference of the real estate bubble, will have a bias.  
+
+# Exploration Data Analysis {#analysis}
+
+In this section, we will start with six research questions to explore data and tell you what economic secrets the HPI brings to us.  
+
+## How similar is the change in state HPI with national HPI?
+
+As the national HPI drive the states, it is necessary to look at which states are the driving force behind it and which states are struggling. However, to analyse the HPI values across 51 states is quite an arduous approach. In the end, we decided to look at the HPI for regions and compare it with national HPI. We use a built-in data set called ‘state.region’ to divided each state into four regions.  
+  
+Figure \@ref(fig:region-wise) presents four regions across the U.S. and how the HPI values at the state level compared with the national level. It is obvious to see that the West and Northeast regions are relatively on the same path as national HPI. In some cases, these two regions are slightly higher than at the national level. The countries represented by these regions are California in West and New York or Connecticut in the Northeast. California continues to lead the tech industries in recent years [@California]. For Regions like South and North Central which are comparatively lower than national changes. It may be due to the location and less population. We noticed that they also witnessed a gradual increase in HPI, but the effect of the housing bubble and the great recession was less drastic.   
+
+```{r wrangle}
+mortgage_rates_month <-  mortgage_rates %>%
+  mutate(year = year(date), month = month(date)) %>%
+  dplyr::select("date","year","month","fixed_rate_30_yr") %>%
+  group_by(year,month) %>%
+  summarise("fixed_rate_30_yr" = mean(fixed_rate_30_yr))
+
+state_hpi <- state_hpi %>% 
+  mutate(date = ymd(year*10000+month*100+1)) 
+
+nation_hpi <- state_hpi %>%
+  dplyr::select("date","year","month","us_avg") %>%
+  distinct()
+
+```
+
+```{r region-wise, fig.cap="Comparing HPI for U.S. four regions(Northeast, South, North Central, West) with the Natinal Level by line chart. Green line represents state HPI, and red line represents national HPI."}
+# data of 2-letter abbreviations for the state names
+state_abb <- as.data.frame(state.abb)
+state_abb <- state_abb %>% mutate(region = state.region)
+colnames(state_abb)[1] <- "state"
+
+# join the state HPI data
+state_hpi_abb <- merge(x=state_hpi, y=state_abb, by="state", all.x = TRUE)
+state_hpi_abb$region[is.na(state_hpi_abb$region)] <- "South"
+
+# divided HPI data into four regions, choose median represents region HPI
+state_data_hpi <- state_hpi_abb %>% 
+  dplyr::select("date", "region", "state", "price_index", "us_avg") %>% 
+  group_by(date,region,us_avg) %>% 
+  summarise(price_index = median(price_index)) %>% 
+  rename("National_HPI" = "us_avg", "State_HPI" = "price_index")
+
+p1 <- state_data_hpi %>%
+  ggplot()+ 
+  geom_line(data=state_data_hpi, aes(x=date, y=State_HPI, color="State")) +
+  geom_line(data=state_data_hpi, aes(x=date, y=National_HPI, color="Nation")) + 
+  facet_wrap( ~ region) +
+  xlab("Year") +
+  ylab("HPI") +
+  ggtitle("US Region vs. Average HPI") +
+  scale_colour_discrete(labels = c('National','State')) +
+  guides(color=guide_legend(title=NULL)) +
+  theme_light()
+
+ggplotly(p1)
+```
+
+
+
+## Are HPI more likely to be higher in prosperous states?{#gdp}
+
+This part aims to answer the question: Are HPI more likely to be higher in prosperous or populous cities? Since the time interval of the original data is exceptionally long, calculate the average HPI from 1975 to 2018 has some limitations. Therefore, selecting the data for the latest ten years could answer this question more accurately. The following Figure \@ref(fig:map-HPI) used the shade of colour to represent the HPI. The dark red area indicates higher HPI and vice verse. Within the whole area, the darkest state is ND (State of North Dakota) which reached 180% of HPI. Although we could not conclude HPI may be higher in the prosperous region, the HPI in the western and eastern coastal area is higher than inland area. On the map, the littoral states of the U.S. are darker than inland areas, especially near California and the capital region.   
+
+```{r state_abb}
+# US state data 
+# states <- map_data("")
+state.abb <- as.data.frame(state.abb)
+state.name <- as_data_frame(state.name)
+USstate <- cbind(state.abb, state.name) %>%
+  rename(state = state.abb, full_name = value)
+```
+
+```{r us_map}
+#get us map
+us_map <- usmap::us_map() %>%
+  rename(region = "abbr")
+```
+
+```{r avg_HPI}
+# Average HPI in each state
+avg_state <- state_hpi %>%
+  filter(year %in% c("2008","2009","2010","2011","2012", "2013", "2014", "2015", "2016", "2017", "2018")) %>%
+  group_by(state) %>%
+  summarise(mean = mean(price_index)) %>%
+  ungroup()
+
+all_states <- avg_state %>%
+  full_join(us_map, by = c("state" = "region"))
+```
+
+```{r map-HPI, fig.cap="The map of average HPI from 2008 to 2018 for each state in USA. The darker the color, the higher the HPI. "}
+statements_states <- all_states %>%
+  group_by(state) %>%
+  summarise(
+    long = mean(range(x)), 
+    lat = mean(range(y)), 
+    group = mean(group), 
+    mean = mean(mean)
+  )
+
+p2 <- ggplot(all_states, aes(x = x, y = y, group = group, fill = mean, label = mean)) + 
+  geom_polygon(color = "white", show.legend = T) +
+  scale_fill_gradient(name = "HPI", low = "#F0F2F0", 
+                      high = "#000C40", 
+                      guide = "colorbar", 
+                      na.value = "black",
+                      breaks = pretty_breaks(n = 5)) +
+  labs(title = "HPI for each State in USA", x = "Longitude", y = "Latitude") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16)) +
+  geom_text(data = statements_states, aes(x = long, y = lat, label = state), size = 3) +
+  theme(panel.grid=element_blank(),panel.border=element_blank())+
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank()) +
+  theme(axis.ticks.x = element_blank(), axis.text.x = element_blank()) +
+  xlab(NULL) +
+  ylab(NULL)
+
+ggplotly(p2, tooltip = c("label"))
+```
+
+Gross Domestic Product (GDP), which is generally regarded as one of the best indicators to measure the economic condition of a country or region, as @SU states. It is a useful indicator, which can provide valued insights for us to know the economic condition for each state in U.S. And we use GDP in this analysis for measuring the prosperity of each state.  
+In other words, prosperous states could have higher GDP on average. Same as HPI, calculate the average GDP from 1997 to 2019 has some limitations, we choose ten years same as HPI will be more accurate. In Figure \@ref(fig:GDP-map), the most prosperous state is California, but its HPI was not the highest one. In contrast, the State of North Dakota(ND) has reached the highest HPI in the latest decade, but GDP is relatively lower in these states. Therefore, we could not conclude that higher HPI is more likely to be higher in the prosperous state. However, from Figure \@ref(fig:map-HPI) and Figure \@ref(fig:GDP-map), we could infer that the GDP and HPI of the coastal area are relatively higher than other inland regions.   
+
+```{r gdp-data}
+states_gdp_clean <- states_gdp %>% 
+  mutate('2018' = as.numeric('2018'),
+         '2019' = as.numeric('2019')) %>%
+  pivot_longer(cols = c(9:31), names_to = "year", values_to = "gdp") 
+
+gdp_abb <- left_join(states_gdp_clean, USstate, by = c("GeoName" = "full_name")) %>% 
+  select(-c(4:8))
+```
+
+```{r avg-gap}
+avg_gdp <- gdp_abb %>%
+  filter(year %in% c("2008","2009","2010","2011","2012", "2013", "2014", "2015", "2016", "2017", "2018")) %>%
+  filter(GeoName != "United States") %>%
+  group_by(state) %>%
+  summarise(mean = mean(gdp)) %>%
+  ungroup()
+```
+
+```{r gap-map-data}
+gdp <- us_map %>%
+  right_join(avg_gdp, by = c("region" = "state"))
+```
+
+```{r GDP-map, fig.cap="The map of average GDP from 2008 to 2018 for each state in USA. The darker the color, the higher the GDP."}
+statements_gdp <- gdp %>%
+  group_by(region) %>%
+  summarise(
+    long = mean(range(x)), 
+    lat = mean(range(y)), 
+    group = mean(group),
+    mean = mean(mean)
+  )
+
+p3 <- ggplot(gdp, aes(x = x, y = y, group = group, fill = mean, label = mean)) + 
+  geom_polygon(color = "white", show.legend = T) +
+  scale_fill_gradient(name = "GDP", low = "#F4E2D8", high = "#BA5370", guide = "colorbar", na.value = "black", breaks = pretty_breaks(n = 5)) +
+  labs(title = "Gross Domestic Product(GDP) in each state", x = "Longitude", y = "Latitude") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16)) +
+  geom_text(data = statements_gdp, aes(x = long, y = lat, label = region), size = 3) +
+  theme(panel.grid=element_blank(),panel.border=element_blank())+
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank()) +
+  theme(axis.ticks.x = element_blank(), axis.text.x = element_blank()) +
+  xlab(NULL) +
+  ylab(NULL)
+
+ggplotly(p3, tooltip = c("label"))
+```
+
+
+## Was the annual change in HPI index similar to the annual change in mortgage rates?  
+
+Are the HPI and the mortgage rate rising or falling?  Are their trends consistent? That would be a good start to explore these two economic indices.    
+
+Therefore, we calculated the annual change for HPI and the mortgage rates from 1975 to 2018. From Figure \@ref(fig:change), we find some interesting phenomena is that the annual changes for the mortgage rates had been negative for years, and only a few years had been positive. On the contrary, HPI continued to decline from 2007 to 2011, while the annual change ratios rose in the rest years.  That is, the annual trends of the two seem inconsistent, except that they were both negative from 2007 to 2011, and the U.S. was in Great Recession at that time (Table \@ref(tab:recession-wrangle)).  
+
+```{r mort-fixed30}
+mortgage_fix30 <- mortgage_rates %>% 
+  select(1:2) %>% 
+  mutate(year = year(date)) %>% 
+  filter(year >= 1975) %>% 
+  group_by(year) %>% 
+  summarise(fixed_30yr_avg = mean(fixed_rate_30_yr)) %>% 
+  mutate(ratio = (fixed_30yr_avg - lag(fixed_30yr_avg)) / fixed_30yr_avg,
+         ratio = round(ratio,3))
+
+```
+
+```{r nation-hpi-change}
+nation_hpi_change <- nation_hpi %>% 
+  group_by(year) %>% 
+  summarise(us_avg = mean(us_avg)) %>% 
+  mutate(ratio = (us_avg - lag(us_avg)) / us_avg,
+         ratio = round(ratio,3))
+  
+```
+
+```{r change, fig.cap="The annual change for Mortgage annual changes and HPI annual changes from 1975 to 2018 by line chart, and comparing the trend between them."}
+p4<-mortgage_fix30 %>% 
+  ggplot(aes(year, ratio)) + 
+  geom_bar(aes(fill=factor((ratio>0)+1)),
+           stat="identity")+
+  scale_x_continuous(breaks = seq(1975,2020,6))+
+  ggtitle("Mortgage annual changes")+
+  scale_fill_manual("change",
+                    breaks=c("1","2"),
+                    labels=c("Down", "Up"),
+                    values=c("#FFAEB9","#7AC5CD"))+
+  guides(fill = guide_legend(reverse=TRUE))+
+  theme_light()
+
+p5<-nation_hpi_change %>% 
+  ggplot(aes(year, ratio)) + 
+  geom_bar(aes(fill=factor((ratio>0)+1)),
+           stat="identity") +
+  scale_x_continuous(breaks = seq(1975,2020,6))+
+  ggtitle("HPI annual changes")+
+   scale_fill_manual("change", 
+                     breaks=c("1","2"),
+                     labels=c("Down", "Up"),
+                    values=c("#FFAEB9","#7AC5CD"))+
+  guides(fill = guide_legend(reverse=TRUE))+
+  theme_light()
+
+p4/p5+plot_layout(guides = "collect")
+
+```
+
+
+## Do lower mortgage rates mean higher HPI? Can the long mortgage rates predict HPI?
+
+Mortgage rates and HPI are two separate entities which are calculated on different parameters, but their relations can give interesting insights. For our analysis, we focus on the ‘fixed 30 years rate’ mortgage, as this is more popular within US home-buyers’ markets and has offered a completed picture since the mortgage rate begins.   
+  
+In the short term, the factors affecting mortgage rate and house price are different. Mortgage rates can indirectly affect home prices. To be specific, the mortgage rate trend to decrease when the economy is low, the market is relatively unhealthy, and wages are declining. A significant factor causing home prices to rise is a shortage of entry-level construction (@price). Since building material is increasing in cost, constrictor more willing to invest the building cost in high-end properties, intense competition for entry-level homes will lead to higher prices.  
+  
+In Figure \@ref(fig:hpi-mort), we can notice that the House Price Index increased overtime, surprisingly mortgage rates have come crashing down from 1971 to 2018. It indicates that there is a strong relationship that higher rates will lead to a drop-in home price in the long term. This situation follows a simple economics situation, as the economy improves, people will have more money to buy houses. As people buy homes using mortgages most of the time, this means that financing houses have become more accessible, which indicates that the bank has enough reserves to dish out mortgage loans at such low rates. Then, house demand will become higher, which will eventually lead to housing prices increase. Therefore, in the long term, we could use the changes in mortgage rates to predict HPI.  
+  
+Figure \@ref(fig:relationship) also could indicate that the correlation is -0.792,  which means the mortgage rates and HPI have strong negative relationships.  
+
+```{r hpi-mort, fig.cap="Comparing the time series trend for Mortgage rates and HPI from 1975 to 2018 by line chart. Green line represents HPI, and red line represents the mortgage rates. The mortgage rates shows a downward trend, while HPI shows an upward trend."}
+# national HPI
+hpi_mort <- ggplot()+ 
+  geom_line(data=mortgage_rates, 
+            aes(x=date, y=fixed_rate_30_yr*10),
+            color = "#A73737",
+            size = 0.8) +
+  geom_line(data=nation_hpi, 
+            aes(x=date, y=us_avg),
+            color="#9BCD9B", 
+            size = 0.8)+
+  annotate("text", x=as.Date("2012-05-01"), y=110, label="HPI", color = "#9BCD9B", size = 4) +
+  annotate("text", x=as.Date("1987-11-27"), y=175, label="Mortgage Rates", color = "#A73737", size = 4) +
+  scale_y_continuous(sec.axis = sec_axis(~ . *0.1, name = "Mortgage Rates"))+
+  theme_light()+
+  xlim(ymd(19750101), NA) +
+  labs(x="Year", y="US Average HPI") +
+  ggtitle("The Changes between Mortgage rates and HPI") 
+  
+ggplotly(hpi_mort) 
+```
+
+
+```{r relationship, fig.cap="The plot for he relationship between HPI and Mortgage rate. The plot shows HPI and Mprtgage rate has a strong correlation."}
+mortgage_date <- unite(data = mortgage_rates_month, date, sep = "-", year, month)
+nation_date <- unite(data = nation_hpi, date, sep = "-", year, month)
+
+HPI_mortgage <- mortgage_date %>%
+  full_join(nation_date, by = "date") %>%
+  rename("Mortgage Rate" = fixed_rate_30_yr, "House Pricing Index (HPI)" = us_avg)
+
+GGally::ggpairs(HPI_mortgage ,c(2:3))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.border = element_rect(linetype = "dashed", 
+                                    colour = "#8E9EAB", 
+                                    fill = NA)) +
+  ggtitle("The Relationship between Mortgage Rate and Hpi")
+
+```
+
+
+## Can HPI and mortgage rates provide evidence of a subprime crisis? 
+
+Changes in HPI and mortgage rates are closely related to economic activity. However, is there a correlation with recessions? Analyzing the effect of the recession on HPI and mortgage rates using financial data is outside this report's scope. However, the recession data scripted from Wikipedia can give us insights to look at the behaviour of HPI and mortgage rates during the period of recession.    
+
+```{r recession-wrangle}
+# separate the period time to "start" and "end"
+recession_dat <- recession_clean  %>% 
+  separate(period_range, into = c("start", "end"), sep = "–") %>% 
+  mutate(start = as.Date(parse_date_time(start, "%b %Y")), 
+         end = as.Date(parse_date_time(end, "%b %Y"))) 
+  
+
+recession_tab <- recession_dat %>% 
+  select(1:3, "peak unemployment rate" = peak_unemploy_ment) %>% 
+  kable(caption = "Recessions and crises from 1929 to present in U.S.") %>% 
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed"), 
+                  full_width = F, 
+                  position = "center") %>% 
+    row_spec(c(10,11,14,15), 
+             bold = T, 
+             color = "white", 
+             background = "steelblue")
+
+
+recession_tab
+```
+
+
+```{r recplot, fig.cap="The line chart for Recession, National HPI and Mortgage rates. The red line represents the mortgage rates, the green line represents HPI, and the shaded blue area represents the duration of the recession."}
+# combine national HPI and recession into one plot
+mortgage_recession <- hpi_mort +
+  geom_rect(data = recession_dat, 
+            aes(xmin = start, xmax = end, ymin = -Inf, ymax = Inf), 
+            alpha = 0.25, 
+            fill = "#7AC5CD") +
+  ggtitle("Recession, HPI and Mortgage Rates")+
+  theme_light()
+
+mortgage_recession
+
+```
+
+Figure \@ref(fig:recplot) shows the trends for the U.S. average HPI and mortgage rates and the period time of recession across time in the U.S. as well. From Figure \@ref(fig:nation_recession), we can find that the HPI kept rising from 1975 to 2006, even as the American economy has experienced many recessions in this period, which may seem strange. It indicates that with the development of the economy, urban expansion, and population increase, people's demand for housing is increasing [@kulish2012urban]. However, the HPI had a significant drop between 2007 and 2009 during the Great Recession. The sub-prime mortgage crisis led to a sustained economic depression, with the unemployment rate reaching 10%, leading to a sharp reduction in demand for houses[@lee2013happens].   
+
+When we turn our attention to the mortgage rates, we can find some different trends from the HPI. Interestingly, the mortgage rates experienced drastic fluctuations during the 1980 Recession and the 1981-1982 Recession, indicating an association between them. Also, the mortgage rates rose slightly and then decreased during the Great Recession from December 2007 to June 2009. From the above analysis, it can be seen that the mortgage rates tend to go through a process of rising and then falling during the economic recession, which was because the government used monetary policy to adjust interest rates and promote economic recovery[@azis2010predicting].   
+
+## Can we find any house price bubble in the U.S from 1975 to 2018?
+
+As @kindleberger1987bubbles states, a bubble is a surge in asset prices, which is expected to be continuous. However, the booming trend always turns over afterward and causes a sharp decline, which may spark a financial crisis. It's interesting to explore whether there was a bubble in the U.S. housing market from 1975 to 2018. We will provide you some insights from historical trends in HPI.   
+
+Figure \@ref(fig:bubble) shows that the U.S. experienced the housing bubble1 from 2000 to 2012. House prices continued to rise from 2001 and peaked in 2006, and then decline for six years. The housing bubble is the result of multiple factors, including low mortgage rates[@lowrates]. As shown in Figure \@ref(fig:nation_recession), the overall mortgage rate kept a downward trend since 2000 and remained low, which further confirms that low mortgage rates were one of the main factors leading to this housing bubble1 and sub-prime mortgage crisis.  
+
+However, HPI experienced a continuous increase process again from 2012 to 2018. Also, the mortgage rates kept decreasing further since 2010 and remained below 5. Will the housing bubble2 emerge? Does the blue line in Figure \@ref(fig:bubble) predict the future scenario? We think the housing bubble2 is highly likely to happen.    
+
+We are experiencing the COVID-19 depression in 2020, the peak unemployment rate in the U.S. reached 14.7% in April 2020.  There is no doubt that high unemployment brings lower expected incomes and reduces the demand for housing in the bust[@krivenko2018unemployment], which implies the decline for future HPI and the occurrence of the housing bubble2.    
+
+```{r bubble, fig.cap="The line chart fot Recession and National HPI. The occurrence of the US housing bubble from 1975 to 2018 and the scenarios that may present in the future."}
+# bubble plot
+p_bubble <- state_hpi %>% 
+  ggplot() +
+  geom_line(aes(date, us_avg), 
+            color = "#9BCD9B",
+            size = 1) +
+  geom_rect(data = recession_dat, 
+            aes(xmin = start, xmax = end, ymin = -Inf, ymax = Inf), 
+            alpha = 0.25, fill = "#7AC5CD") +
+  annotate("segment", 
+           x=as.Date('2001-02-01'), 
+           xend=as.Date('2012-01-01'), 
+           y=100, yend=100, 
+           colour = "#FFAEB9", 
+           size = 0.6)+
+  annotate("segment", 
+           x=as.Date('2012-01-01'), 
+           xend=as.Date('2023-09-01'), 
+           y=120, yend=120, 
+           colour = "#FFAEB9", 
+           size = 0.6)+
+  annotate("pointrange", 
+           x = as.Date('2006-12-01'), 
+           y = 166, 
+           ymin = 100, ymax = 190, 
+           colour = "#FFAEB9", 
+           size = 0.6)+
+  annotate("pointrange", 
+           x = as.Date('2019-01-01'), 
+           y = 190, 
+           ymin = 120, ymax = 200, 
+           colour = "#FFAEB9", 
+           size = 0.6)+
+  annotate("segment", 
+           x = as.Date('2019-01-01'), 
+           xend=as.Date('2025-09-01'), 
+           y = 192, yend = 100, 
+           colour = "#69b3a2", 
+           size=1, alpha=1, 
+           arrow=arrow())+
+  annotate(geom = "text", 
+           x=as.Date('2025-06-01'), 
+           y=90, 
+           label="Future \nscenario?", 
+           size = 4, 
+           color = "red")+
+  annotate(geom = "text", 
+           x=as.Date('2006-12-01'), 
+           y=90, 
+           label="Bubble1", 
+           size = 4, 
+           color = "red")+
+  annotate(geom = "text", 
+           x=as.Date('2019-01-01'), 
+           y=110, 
+           label="Bubble2", 
+           size = 4, 
+           color = "red")+
+  ggtitle("Recession, National HPI and Housing Bubble")+
+  xlim(c(ymd(19750101),ymd(20261201))) +
+  ylab("US Average HPI") +
+  xlab("Date") +
+  theme_light()
+
+p_bubble
+```
+
+
+# Limitations of anaysis {#limitation}
+
+This section mainly introduces two main limitations of this analysis.  
+- Only fixed-30-year mortgage rate can be used in this analysis, so we cannot analyze the relationship between fixed 15-year rate and adjustable-5-year rate. Therefore, the correlation between HPI and mortgage rate is not convincing in this analysis, and we need more data to confirm it.  
+- The analysis of the housing bubble is extrapolated based on trends in historical HPI data and recession data. We cannot guarantee the accuracy of the prediction of bubble 2 and future scenario but make reasonable inferences based on the data, and there will cause deviation in results.  
+
+# Conclusion {#conclusion}
+
+The research explores the economy secrets between HPI, mortgage rates, GDP and the recession. From the above analysis, we find that the HPI of the West and Northeast of the United States is slightly higher than that of the national HPI, but interestingly, the states with high GDP in the West and Northeast are not consistent with the states with the high HPI. Moreover, we find that there is no apparent relationship between the mortgage rates and HPI in the short term, but there is a specific negative correlation in a long time. Interestingly, the HPI fluctuations were not affected by the early recession. However, the 2007-2009 Great Recession led to a sharp decline in the HPI, which also led to the first housing bubble in the U.S. housing market. Thus, from the following HPI trends and the COVID-19 recession in 2020, we inferred that the U.S. housing market is currently experiencing a second housing bubble.   
+  
+For future research, it will be exciting to keep digging deeper into the housing market and research more data to find out if the U.S. housing market is experiencing a second housing bubble.   
+
+# Acknowledgments{-}
+
+The authors would like to thank tidytuesday organization provides data for us. And also thank all the contributors to the following R package: @tidyverse,  @ggplot2, @readr, @here, @base,  @dplyr, @lulbridate, @ggally, @janitor, @MASS, @kableExtra, @naniar, @patchwork, @plotly, @scales, @knitr.  
+
+# References

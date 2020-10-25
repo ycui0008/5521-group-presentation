@@ -1,0 +1,320 @@
+---
+title: "Take a good plot and make it sad"
+subtitle: "Group eucalyptus"  
+author: 
+  "Yuheng Cui"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    seal: false
+    css: xaringan-themer.css
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE, 
+        echo = FALSE, 
+        warning = FALSE, 
+        message = FALSE,  
+        include=FALSE)
+library(tidyverse)
+library(lubridate)
+library(here)
+library(patchwork)
+library(kableExtra)
+library(ggthemes)
+library(knitr)
+library(xaringanthemer)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+style_solarized_light()
+```
+
+
+background-image: url(tiny_house.jpg)
+background-position: right bottom
+
+# Group member
+
+### ycui0008
+### hngo0005
+### yhee0063
+
+
+
+---
+class: center, middle
+
+# Background story
+
+
+#### The housing market represents about 15% to 18% of U.S. GDP(NAHB 2019)
+
+
+#### In recent years, as the U.S. housing market booming
+
+
+---
+class: center, middle
+
+# Data set
+
+---
+
+```{r read-data, include =FALSE}
+state_hpi <-readr::read_csv(here::here("data/state_hpi.csv")) 
+mortgage_rates <- readr::read_csv(here::here("data/mortgage_rates.csv")) 
+```
+
+
+### This is HPI data
+```{r state_hpi, echo = FALSE}
+knitr::kable(head(state_hpi, 5), format = 'html') %>% 
+  kable_material(c("striped", "hover")) %>% 
+  kable_styling(full_width = F)
+```
+
+* `price_index`: Calculated House Price Index - average price changes in repeat sales or refinancings at state level.
+
+* `us_avg`: Calculated House Price Index - averaged at national level
+
+---
+
+
+### This is mortgage data
+```{r mortgage_rates, echo = FALSE}
+knitr::kable(head(mortgage_rates[1:2]), format = 'html') %>% 
+  kable_material(c("striped", "hover")) %>% 
+  kable_styling(full_width = F)
+```
+
+* `fixed_rate_30_yr`: Fixed rate 30 year mortgage (percent).
+
+
+
+
+
+
+---
+
+# This is original plot`r emo::ji("smile")`
+
+.pull-left[
+```{r wrangle, echo = FALSE, message=FALSE, warning=FALSE}
+mortgage_rates_month <-  mortgage_rates %>%
+  mutate(year = year(date), month = month(date)) %>%
+  dplyr::select("date","year","month","fixed_rate_30_yr") %>%
+  group_by(year,month) %>%
+  summarise("fixed_rate_30_yr" = mean(fixed_rate_30_yr))
+
+state_hpi <- state_hpi %>% 
+  mutate(date = ymd(year*10000+month*100+1)) 
+
+nation_hpi <- state_hpi %>%
+  dplyr::select("date","year","month","us_avg") %>%
+  distinct()
+
+```
+
+
+
+```{r mort-fixed30, echo = FALSE, message=FALSE, warning=FALSE}
+mortgage_fix30 <- mortgage_rates %>% 
+  select(1:2) %>% 
+  mutate(year = year(date)) %>% 
+  filter(year >= 1975) %>% 
+  group_by(year) %>% 
+  summarise(fixed_30yr_avg = mean(fixed_rate_30_yr)) %>% 
+  mutate(ratio = (fixed_30yr_avg - lag(fixed_30yr_avg)) / fixed_30yr_avg,
+         ratio = round(ratio,3))
+
+```
+
+
+
+
+
+```{r nation-hpi-change, echo = FALSE, message=FALSE, warning=FALSE}
+nation_hpi_change <- nation_hpi %>% 
+  group_by(year) %>% 
+  summarise(us_avg = mean(us_avg)) %>% 
+  mutate(ratio = (us_avg - lag(us_avg)) / us_avg,
+         ratio = round(ratio,3))
+  
+```
+
+
+
+
+
+
+```{r change, echo = FALSE, message=FALSE, warning=FALSE}
+p4<-mortgage_fix30 %>% 
+  ggplot(aes(year, ratio)) + 
+  geom_bar(aes(fill=factor((ratio>0)+1)),
+           stat="identity")+
+  scale_x_continuous(breaks = seq(1975,2020,6))+
+  ggtitle("Mortgage annual changes")+
+  scale_fill_manual("change",
+                    breaks=c("1","2"),
+                    labels=c("Down", "Up"),
+                    values=c("#FFAEB9","#7AC5CD"))+
+  guides(fill = guide_legend(reverse=TRUE))+
+  theme_light()
+
+p5<-nation_hpi_change %>% 
+  ggplot(aes(year, ratio)) + 
+  geom_bar(aes(fill=factor((ratio>0)+1)),
+           stat="identity") +
+  scale_x_continuous(breaks = seq(1975,2020,6))+
+  ggtitle("HPI annual changes")+
+   scale_fill_manual("change", 
+                     breaks=c("1","2"),
+                     labels=c("Down", "Up"),
+                    values=c("#FFAEB9","#7AC5CD"))+
+  guides(fill = guide_legend(reverse=TRUE))+
+  theme_light()
+
+p4/p5+plot_layout(guides = "collect")
+
+```
+]
+
+.pull-right[
+Q: Was the annual change in HPI index similar to the annual change in mortgage rates?
+
+* Title
+* Legend
+* x- and y-axis labels
+]
+
+---
+
+
+
+```{r xaringan-panelset, echo=FALSE}
+xaringanExtra::use_panelset()
+```
+
+.panelset[
+.panel[.panel-name[Code-part1]
+
+```{r badplot, tidy=FALSE, include = FALSE, echo = TRUE, warning=FALSE, message=FALSE}
+p1 <- mortgage_fix30 %>% 
+  ggplot(aes(year, ratio)) +
+  geom_line()+
+  scale_x_continuous(breaks = seq(1975,2020,1))+ 
+  scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
+  ggtitle("Mortgage annual changes")+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.background = element_rect('green'),
+        title = element_text(color = 'red', family = 'mono', face = "bold.italic"))
+
+p2 <- nation_hpi_change %>% 
+  ggplot(aes(year, ratio)) +
+  geom_bar(aes(fill=factor((ratio>0)+1)),
+           stat="identity")+
+  ggtitle("HPI annual changes")+
+  scale_x_continuous(breaks = seq(1975,2020,1))+
+  scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.background = element_rect('purple'),
+        legend.background = element_rect('red'),
+        title = element_text(color = 'green', family = 'Courier', face = "bold"),
+        legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic"))
+
+p1/p2
+```
+
+```r
+p1 <- mortgage_fix30 %>% 
+  ggplot(aes(year, ratio)) +
+  geom_line()+
+  scale_x_continuous(breaks = seq(1975,2020,1))+ 
+  scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
+  ggtitle("Mortgage annual changes")+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.background = element_rect('green'),
+        title = element_text(color = 'red', family = 'mono', face = "bold.italic"))
+```
+]
+.panel[.panel-name[Code-part2]
+```r
+p2 <- nation_hpi_change %>% 
+  ggplot(aes(year, ratio)) +
+  geom_bar(aes(fill=factor((ratio>0)+1)),
+           stat="identity")+
+  ggtitle("HPI annual changes")+
+  scale_x_continuous(breaks = seq(1975,2020,1))+ 
+  scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.background = element_rect('purple'),
+        legend.background = element_rect('red'),
+        title = element_text(color = 'green', family = 'Courier', face = "bold"),
+        legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic"))
+
+p1/p2
+```
+]
+.panel[.panel-name[a bad plot`r emo::ji("poop")`]
+![ugly plot](5521-presentation_files/figure-html/badplot-1.png)
+
+]
+
+
+]
+
+---
+
+
+background-image: url(5521-presentation_files/figure-html/badplot-1.png)
+background-position: right bottom
+
+
+.pull-left[
+
+#### 1. Colorful background makes people uncomfortable
+
+#### 2. ${\text{Data Ink Ratio}} = \frac{\text{Ink used to display data}}{\text{Ink used in graphic}}$. This plot has low `Data Ink Ratio`
+
+#### 3. No x- and y-axis labels
+
+#### 4. Too many breaks in x- and y-axis
+
+#### 5. No y=0 line in first plot
+
+#### 6. Two plots are different type
+
+#### 7. Legend title and text are confusing
+
+]
+
+---
+
+class: center, middle
+
+# Thanks!
+
+Slides created via the R package [**xaringan**](https://github.com/yihui/xaringan).
+
+```r
+library(tidyverse)
+library(lubridate)
+library(here)
+library(patchwork)
+library(kableExtra)
+library(ggthemes)
+library(knitr)
+library(xaringanthemer)
+```
+--
+## Any questions`r emo::ji("question")`
