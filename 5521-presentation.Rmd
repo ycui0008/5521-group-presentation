@@ -3,6 +3,7 @@ title: "Take a good plot and make it sad"
 subtitle: "Group eucalyptus"  
 author: 
   "Yuheng Cui"
+  "Yezi He"'
 date: '`r Sys.Date()`'
 output:
   xaringan::moon_reader:
@@ -288,15 +289,71 @@ background-position: right bottom
 
 #### 3. No x- and y-axis labels
 
-#### 4. Too many breaks in x- and y-axis
-
-#### 5. No y=0 line in first plot
+#### 4. No y=0 line in first plot
 
 #### 6. Two plots are different type
 
 #### 7. Legend title and text are confusing
 
 ]
+---
+.panelset[
+.panel[.panel-name[Data Wrangling]
+
+```{r HPI_mortgage_ratio, tidy=FALSE, include = FALSE, echo = TRUE, warning=FALSE, message=FALSE}
+HPI_mortgage_ratio <- nation_hpi_change %>%
+  left_join(mortgage_fix30, by = "year") %>%
+  rename(hpi_ratio = ratio.x,
+         mortgage_ratio = ratio.y) %>%
+  dplyr::select(year, hpi_ratio, mortgage_ratio)
+```
+```r
+HPI_mortgage_ratio <- nation_hpi_change %>%
+  left_join(mortgage_fix30, by = "year") %>%
+  rename(hpi_ratio = ratio.x,
+         mortgage_ratio = ratio.y) %>%
+  dplyr::select(year, hpi_ratio, mortgage_ratio)
+``` 
+]
+
+.panel[.panel-name[A bad plot`r emo::ji("poop")`]
+![bad plot](5521-presentation_files/figure-html/badplot-2.jpg)
+]
+
+]
+```{r yezi}
+p3 <- HPI_mortgage_ratio %>%
+  pivot_longer(c(hpi_ratio,mortgage_ratio),"ratio_type") %>%
+  ggplot(aes(year, value, colour = ratio_type)) + 
+  geom_bar(position="stack",
+           stat="identity")+
+  scale_x_continuous(breaks = seq(1975,2020,6))+
+  theme_light()+
+  theme(axis.title.x = element_blank(),
+        legend.background = element_rect('red'))
+```
+
+
+---
+
+
+background-image: url(5521-presentation_files/figure-html/badplot-2.jpg)
+background-position: right
+
+
+.pull-left[
+
+#### 1. Awful colour. `r emo::ji("awful")`
+
+#### 2. We would be confused whether it is stacked?
+
+#### 3. No x-axis label.
+
+#### 4. What does y-axis label **value** mean?
+
+]
+---
+
 
 ---
 
