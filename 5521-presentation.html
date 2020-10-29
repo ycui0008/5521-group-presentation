@@ -4,7 +4,7 @@
     <title>Take a good plot and make it sad</title>
     <meta charset="utf-8" />
     <meta name="author" content="Yuheng Cui" />
-    <meta name="date" content="2020-10-25" />
+    <meta name="date" content="2020-10-29" />
     <script src="libs/kePrint/kePrint.js"></script>
     <link href="libs/lightable/lightable.css" rel="stylesheet" />
     <link href="libs/panelset/panelset.css" rel="stylesheet" />
@@ -188,6 +188,14 @@ Q: Was the annual change in HPI index similar to the annual change in mortgage r
 
 ---
 
+&lt;style type="text/css"&gt;
+.h100 {
+   height: 400px!important;
+   overflow: scroll!important;
+}
+
+&lt;/style&gt;
+
 
 
 
@@ -197,37 +205,49 @@ Q: Was the annual change in HPI index similar to the annual change in mortgage r
 
 
 
+
 ```r
 p1 &lt;- mortgage_fix30 %&gt;% 
   ggplot(aes(year, ratio)) +
   geom_line()+
   scale_x_continuous(breaks = seq(1975,2020,1))+ 
-  scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
+  scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+ 
   ggtitle("Mortgage annual changes")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        plot.background = element_rect('green'),
-        title = element_text(color = 'red', family = 'mono', face = "bold.italic"))
+* theme(axis.title.x = element_blank(),
+*       axis.title.y = element_blank(),
+*       plot.background = element_rect('green'),
+*       title = element_text(color = 'red', family = 'mono', face = "bold.italic"))
 ```
+
+
+
+
+
+
 ]
 .panel[.panel-name[Code-part2]
+.h100[
+
 ```r
 p2 &lt;- nation_hpi_change %&gt;% 
   ggplot(aes(year, ratio)) +
   geom_bar(aes(fill=factor((ratio&gt;0)+1)),
            stat="identity")+
   ggtitle("HPI annual changes")+
-  scale_x_continuous(breaks = seq(1975,2020,1))+ 
+  scale_x_continuous(breaks = seq(1975,2020,1))+
   scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        plot.background = element_rect('purple'),
-        legend.background = element_rect('red'),
-        title = element_text(color = 'green', family = 'Courier', face = "bold"),
-        legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic"))
-
-p1/p2
+  theme(axis.title.x = element_blank(), 
+        axis.title.y = element_blank(), 
+*       plot.background = element_rect('purple'),
+*       legend.background = element_rect('red'),
+*       title = element_text(color = 'green', family = 'Courier', face = "bold"),
+*       legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic"))
 ```
+
+]
+
+
+
 ]
 .panel[.panel-name[a bad plot💩]
 ![ugly plot](5521-presentation_files/figure-html/badplot-1.png)
