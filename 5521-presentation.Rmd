@@ -386,18 +386,7 @@ p3 <- HPI_mortgage_ratio %>%
 ![bad plot](5521-presentation_files/figure-html/badplot-2.png)
 ]
 
-]
-
-
-
----
-
-
-background-image: url(5521-presentation_files/figure-html/badplot-2.jpg)
-background-position: right
-
-
-.pull-left[
+.panel[.panel-name[Inspection]
 
 #### 1. Awful colour. `r emo::ji("angry")`
 
@@ -406,8 +395,11 @@ background-position: right
 #### 3. No x-axis label.
 
 #### 4. What does y-axis label **value** mean?
+]
+
 
 ]
+
 
 
 
