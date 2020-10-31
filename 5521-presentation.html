@@ -4,7 +4,7 @@
     <title>Take a good plot and make it sad</title>
     <meta charset="utf-8" />
     <meta name="author" content="Yuheng Cui" />
-    <meta name="date" content="2020-10-30" />
+    <meta name="date" content="2020-10-31" />
     <script src="libs/kePrint/kePrint.js"></script>
     <link href="libs/lightable/lightable.css" rel="stylesheet" />
     <link href="libs/panelset/panelset.css" rel="stylesheet" />
@@ -197,9 +197,11 @@ For this presentation, we used two dataset
 
 Q: What's good about this plot?
 
-* Clear colour scheme indicating change direction
-* Bar charts delivered clean and neatly
-* Up and down comparison
+* Clear and clean background (include grid and colour)
+* Two bar charts: comparable, direction and magnitude of Up/Down
+* Different colours differenciate Up and down
+
+
 ]
 
 ---
@@ -225,14 +227,15 @@ Q: What's good about this plot?
 ```r
 p1 &lt;- mortgage_fix30 %&gt;% 
   ggplot(aes(year, ratio)) +
-  geom_line()+
+* geom_line()+
+  geom_rug()+
   scale_x_continuous(breaks = seq(1975,2020,1))+ 
   scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+ 
   ggtitle("Mortgage annual changes")+
 * theme(axis.title.x = element_blank(),
 *       axis.title.y = element_blank(),
 *       plot.background = element_rect('green'),
-*       title = element_text(color = 'red', family = 'mono', face = "bold.italic"))
+        title = element_text(color = 'red', family = 'mono', face = "bold.italic")) 
 ```
 
 
@@ -240,8 +243,9 @@ p1 &lt;- mortgage_fix30 %&gt;%
 ```r
 p2 &lt;- nation_hpi_change %&gt;% 
   ggplot(aes(year, ratio)) +
-  geom_bar(aes(fill=factor((ratio&gt;0)+1)),
-           stat="identity")+
+* geom_bar(aes(fill=factor((ratio&gt;0)+1)),
+           stat="identity")+ 
+  geom_rug()+
   ggtitle("HPI annual changes")+
   scale_x_continuous(breaks = seq(1975,2020,1))+
   scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
@@ -249,8 +253,8 @@ p2 &lt;- nation_hpi_change %&gt;%
         axis.title.y = element_blank(), 
 *       plot.background = element_rect('purple'),
 *       legend.background = element_rect('red'),
-*       title = element_text(color = 'green', family = 'Courier', face = "bold"),
-*       legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic"))
+        title = element_text(color = 'green', family = 'Courier', face = "bold"), 
+        legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic")) 
 ```
 
 ]
@@ -260,7 +264,7 @@ p2 &lt;- nation_hpi_change %&gt;%
 ]
 
 .panel[.panel-name[a bad plot💩] 
-![ugly plot](5521-presentation_files/figure-html/badplot-1.png) 
+![ugly plot](5521-presentation_files/figure-html/unnamed-chunk-3-1.png) 
 
 ]
 

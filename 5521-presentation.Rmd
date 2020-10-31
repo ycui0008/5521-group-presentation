@@ -240,9 +240,11 @@ p4/p5+plot_layout(guides = "collect")
 
 Q: What's good about this plot?
 
-* Clear colour scheme indicating change direction
-* Bar charts delivered clean and neatly
-* Up and down comparison
+* Clear and clean background (include grid and colour)
+* Two bar charts: comparable, direction and magnitude of Up/Down
+* Different colours differenciate Up and down
+
+
 ]
 
 ---
@@ -269,31 +271,33 @@ xaringanExtra::use_panelset()
 ```{r badplot1, tidy=FALSE, echo = TRUE, warning=FALSE, message=FALSE}
 p1 <- mortgage_fix30 %>% 
   ggplot(aes(year, ratio)) +
-  geom_line()+
+  geom_line()+ #<<
+  geom_rug()+
   scale_x_continuous(breaks = seq(1975,2020,1))+ 
   scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+ 
   ggtitle("Mortgage annual changes")+
   theme(axis.title.x = element_blank(), #<<
         axis.title.y = element_blank(), #<<
         plot.background = element_rect('green'), #<<
-        title = element_text(color = 'red', family = 'mono', face = "bold.italic")) #<<
+        title = element_text(color = 'red', family = 'mono', face = "bold.italic")) 
 ```
 
 
 ```{r badplot2, tidy=FALSE, echo = TRUE, warning=FALSE, message=FALSE}
 p2 <- nation_hpi_change %>% 
   ggplot(aes(year, ratio)) +
-  geom_bar(aes(fill=factor((ratio>0)+1)),
-           stat="identity")+
+  geom_bar(aes(fill=factor((ratio>0)+1)), #<<
+           stat="identity")+ 
+  geom_rug()+
   ggtitle("HPI annual changes")+
   scale_x_continuous(breaks = seq(1975,2020,1))+
   scale_y_continuous(breaks = seq(-0.3,0.3,0.01))+
   theme(axis.title.x = element_blank(), 
         axis.title.y = element_blank(), 
-        plot.background = element_rect('purple'),  #<<
+        plot.background = element_rect('purple'), #<<
         legend.background = element_rect('red'), #<<
-        title = element_text(color = 'green', family = 'Courier', face = "bold"), #<<
-        legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic")) #<<
+        title = element_text(color = 'green', family = 'Courier', face = "bold"), 
+        legend.title = element_text(color = 'grey', family = 'Standard Symbols L', face = "italic")) 
 ```
 
 ]
@@ -305,7 +309,7 @@ p1/p2
 ]
 
 .panel[.panel-name[a bad plot`r emo::ji("poop")`] 
-![ugly plot](5521-presentation_files/figure-html/badplot-1.png) 
+![ugly plot](5521-presentation_files/figure-html/unnamed-chunk-3-1.png) 
 
 ]
 
