@@ -339,10 +339,9 @@ join_both %>%
 ```
 
 **Why bad?**
-- Highly fluctuated, hard to follow  
-- The up and down nodes are unclear  
-- The change magnitude is more prominent than the change itself  
-- One scale turns bad
+- Misrepresent, showing the "change" of change
+- Misleading title  
+- Highly fluctuated, hard to follow both lines
 - **Can't tell it's bad from the start!**
 ]
 ]
